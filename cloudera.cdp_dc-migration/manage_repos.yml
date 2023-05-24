@@ -1,0 +1,99 @@
+---
+- hosts: repo_servers 
+  gather_facts: false
+  become: yes
+
+  tasks:
+    - name: Install httpd service 
+      yum:
+        name: httpd
+        state: latest
+
+    - replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '^(Listen)\s+80\s*$'
+        replace: '\1 8060'
+
+    - name: Manage cloudera-repos directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: 0775
+      with_items:
+        - /var/www/html/cloudera-repos
+        - /var/www/html/cloudera-repos/cm7
+        - /var/www/html/cloudera-repos/7.1.2
+        - /var/www/html/cloudera-repos/7.1.3
+        - /var/www/html/cloudera-repos/CFM
+
+#   - name: install pip
+#     easy_install:
+#        name: pip
+#        state: latest
+
+    - name: install awscli, boto, boto3 and botocore
+      pip:
+        name: "{{ item }}"
+      loop:
+        - awscli
+        - boto
+        - boto3
+        - botocore
+
+    - name: Configure CM packages repo
+      shell: |
+        aws s3 cp s3://admin-public/cloudera-parcels/cm7/cm7.1.3-redhat7.tar.gz /tmp/
+        tar xvfz /tmp/cm7.1.3-redhat7.tar.gz -C /var/www/html/cloudera-repos/cm7 --strip-components=1
+        rm -f /tmp/cm7.1.3-redhat7.tar.gz
+
+    - name: Download CDP 7.1.3 files from S3 
+      aws_s3:
+        mode: get
+        overwrite: "false"
+        bucket: "admin-public"
+        object: "{{ item }}"
+        dest: "/var/www/html/cloudera-repos/7.1.3/{{ item|basename }}"
+      with_items:
+        - "/cloudera-parcels/7.1.3/CDH-7.1.3-1.cdh7.1.3.p0.4992530-el7.parcel"
+        - "/cloudera-parcels/7.1.3/CDH-7.1.3-1.cdh7.1.3.p0.4992530-el7.parcel.sha"
+        - "/cloudera-parcels/7.1.3/CDH-7.1.3-1.cdh7.1.3.p0.4992530-el7.parcel.torrent"
+        - "/cloudera-parcels/7.1.3/manifest.json"
+ 
+    - name: Download CDP 7.1.2 files from S3
+      aws_s3:
+        mode: get
+        overwrite: "false"
+        bucket: "admin-public"
+        object: "{{ item }}"
+        dest: "/var/www/html/cloudera-repos/7.1.2/{{ item|basename }}"
+      with_items:
+        - "/cloudera-parcels/7.1.2/CDH-7.1.2-1.cdh7.1.2.p0.4253134-el7.parcel"
+        - "/cloudera-parcels/7.1.2/CDH-7.1.2-1.cdh7.1.2.p0.4253134-el7.parcel.sha"
+        - "/cloudera-parcels/7.1.2/CDH-7.1.2-1.cdh7.1.2.p0.4253134-el7.parcel.torrent"
+        - "/cloudera-parcels/7.1.2/manifest.json"
+
+    - name: Download CFM files from S3
+      aws_s3:
+        mode: get
+        overwrite: "false"
+        bucket: "admin-public"
+        object: "{{ item }}"
+        dest: "/var/www/html/cloudera-repos/CFM/{{ item|basename }}"
+      with_items:
+        - "/cloudera-parcels/CFM/CFM-2.0.1.0-71-el7.parcel"
+        - "/cloudera-parcels/CFM/CFM-2.0.1.0-71-el7.parcel.sha"
+        - "/cloudera-parcels/CFM/manifest.json"
+
+
+    - name: Enable httpd service to start on boot up
+      service:
+        name: httpd
+        enabled: yes
+
+    - name: Restart httpd service
+      service:
+        name: httpd
+        state: restarted
+

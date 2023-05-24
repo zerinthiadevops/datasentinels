@@ -1,0 +1,8 @@
+---
+- name: Deploy Cloudera Management Service and CM template
+  hosts: cmhost
+  connection: local
+  gather_facts: yes
+  roles:
+    - role: deployment/services/mgmt
+      when: cluster_reset_state2 | default(false) or cluster_reset_state3 | default(false) or cluster_reset_state4 | default(false)

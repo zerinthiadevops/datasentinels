@@ -1,0 +1,28 @@
+---
+- hosts: stage1
+  gather_facts: false
+  become: yes
+
+  tasks:
+    - name: Install the Cloudera Manager Agent packages
+      package:
+        name: cloudera-manager-agent
+        state: installed
+
+    - name:
+      lineinfile:
+        path: /etc/cloudera-scm-agent/config.ini
+        regexp: '^server_host='
+        line: server_host=cmhost
+
+    - name: Restart Cloudera Manager Agents
+      service:
+        name: cloudera-scm-agent.service
+        state: restarted
+        enabled: yes
+
+    - name: Restart Cloudera Manager Server
+      service:
+        name: cloudera-scm-server.service
+        state: restarted
+        enabled: yes
